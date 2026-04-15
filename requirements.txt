@@ -32,3 +32,6 @@ xxhash>=3.4.0           # Hash rápido
 
 # Monitoramento
 psutil>=5.9.0           # Monitoramento de sistema (CPU, RAM, NET)
+
+# NLP — indexação PT-BR
+nltk>=3.8.0             # Stemmer RSLP e stopwords português (fallback automático se ausente)

@@ -26,13 +26,12 @@ class PriceExtractor:
     """
     
     # Regex para encontrar preços em BRL
+    # Apenas padrões com prefixo R$ para evitar falsos positivos (ex: rgba(65,137,230,.15))
     PRICE_PATTERNS = [
-        # R$ 1.234,56
-        r'R\$\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)',
-        # R$ 1234,56
-        r'R\$\s*(\d+(?:,\d{2})?)',
-        # Só números com vírgula
-        r'(\d{1,3}(?:\.\d{3})*,\d{2})',
+        # R$ 1.234,56  (com separador de milhar — exige vírgula + 2 decimais)
+        r'R\$\s*(\d+(?:\.\d{3})*,\d{2})(?![0-9,.])',
+        # R$ 1234,56  (sem separador de milhar — lookahead impede captura parcial de "200" em "200.000,00")
+        r'R\$\s*(\d+(?:,\d{2})?)(?![0-9,.])',
     ]
     
     # Seletores CSS por loja
@@ -191,14 +190,17 @@ class PriceExtractor:
         clean_html = re.sub(r'style="[^"]*"', '', clean_html)
         clean_html = re.sub(r"style='[^']*'", '', clean_html)
         
+        # Remove padrões rgba/rgb que podem conter números parecidos com preços
+        clean_html = re.sub(r'rgba?\s*\([^)]*\)', '', clean_html, flags=re.IGNORECASE)
+
         for pattern in self.PRICE_PATTERNS:
             matches = re.findall(pattern, clean_html)
             if matches:
-                # Filtra valores plausíveis (R$ 10 a R$ 100.000)
+                # Filtra valores plausíveis (R$ 50 a R$ 100.000)
                 valid_prices = []
                 for match in matches:
                     price = self._parse_price(match)
-                    if price and 10 <= price <= 100000:
+                    if price and 50 <= price <= 100000:
                         valid_prices.append((price, match))
                 
                 if valid_prices:

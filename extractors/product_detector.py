@@ -19,7 +19,22 @@ class ProductDetector:
     """
     Detecta se uma página é de produto e extrai categoria.
     """
-    
+
+    # Padrões de URL que indicam páginas de LISTAGEM/CATEGORIA (não produto individual)
+    # Mesmo que tenham JSON-LD de produto, essas URLs são listagens.
+    LISTING_URL_PATTERNS = [
+        # Kabum — categorias sem ID de produto
+        r'kabum\.com\.br/(hardware|computadores|gamer|perifericos|tv|celular|electrodomesticos|esporte|ferramentas)(/[a-z-]+)*/?$',
+        # Mercado Livre — páginas de busca/categoria
+        r'mercadolivre\.com\.br/(busca|s\?|lista\.|categoria)',
+        r'lista\.mercadolivre\.com\.br/',
+        # Amazon — páginas de busca (s?k=) ou listagem de categoria (s?node=)
+        r'amazon\.com\.br/s\?',
+        r'amazon\.com\.br/s/',
+        # Genérico — termina em categoria/navegação sem ID numérico de produto
+        r'/(colecao|categorias?|departamento|vitrine|busca|search|catalog|c/)(/|$)',
+    ]
+
     # Padrões de JSON-LD para produtos
     PRODUCT_SCHEMA_TYPES = {
         "Product",
@@ -44,16 +59,27 @@ class ProductDetector:
         ('section', {'class': re.compile(r'product', re.I)}),
     ]
     
+    def _is_listing_url(self, url: str) -> bool:
+        """Retorna True se a URL é de uma página de listagem/categoria."""
+        for pattern in self.LISTING_URL_PATTERNS:
+            if re.search(pattern, url, re.I):
+                return True
+        return False
+
     def is_product_page(self, html: str, url: str) -> bool:
         """
         Verifica se página é de produto.
-        
+
         Usa múltiplas heurísticas:
-        1. Padrão de URL
+        1. Padrão de URL (negativo: listagem; positivo: produto)
         2. JSON-LD schema
         3. Meta tags OpenGraph
         4. Indicadores HTML
         """
+        # 0. Se URL é de listagem, rejeitar imediatamente
+        if self._is_listing_url(url):
+            return False
+
         # 1. Verifica URL
         if self._check_url_pattern(url):
             # URL pattern é forte indicador

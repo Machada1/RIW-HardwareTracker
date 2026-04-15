@@ -83,13 +83,15 @@ def normalize_url(url: str) -> str:
     else:
         query = ''
     
-    # Reconstrói URL normalizada
+    # Remove segmentos /ref=... do path (Amazon usa ref= no path, não como query param)
     path = parsed.path.rstrip('/') or '/'
-    
+    path = re.sub(r'/ref=[^/]*', '', path)
+    path = path.rstrip('/') or '/'
+
     normalized = f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{path}"
     if query:
         normalized += f"?{query}"
-    
+
     return normalized
 
 
@@ -103,7 +105,7 @@ def get_store_for_url(url: str) -> Optional[StoreConfig]:
     """Retorna configuração da loja para uma URL."""
     domain = extract_domain(url)
     for store in STORES.values():
-        if store.domain in domain or domain in store.domain:
+        if domain == store.domain:
             return store
     return None
 
@@ -282,14 +284,44 @@ class URLFrontier:
     
     def pop_batch(self, n: int = 10) -> list[URLItem]:
         """
-        Remove e retorna N URLs de maior prioridade.
+        Remove e retorna N URLs de maior prioridade com balanceamento por domínio.
+
+        Para evitar que um domínio domine o batch, limita cada domínio a no máximo
+        metade do batch, distribuindo entre os demais quando possível.
         """
+        if not self.pending:
+            return []
+
         # Ordena por prioridade (desc)
         self.pending.sort(key=lambda x: -x.priority)
-        
-        batch = self.pending[:n]
-        self.pending = self.pending[n:]
-        
+
+        # Balanceamento: máximo por domínio = ceil(n / num_domínios_presentes)
+        domain_counts: dict[str, int] = {}
+        for item in self.pending:
+            domain_counts[item.domain] = domain_counts.get(item.domain, 0) + 1
+
+        num_domains = max(len(domain_counts), 1)
+        max_per_domain = max(1, n // num_domains)
+
+        batch: list[URLItem] = []
+        remaining: list[URLItem] = []
+        batch_domain_counts: dict[str, int] = {}
+
+        for item in self.pending:
+            d = item.domain
+            if len(batch) < n and batch_domain_counts.get(d, 0) < max_per_domain:
+                batch.append(item)
+                batch_domain_counts[d] = batch_domain_counts.get(d, 0) + 1
+            else:
+                remaining.append(item)
+
+        # Se o batch não encheu (alguns domínios têm menos URLs), completar com o que sobrar
+        if len(batch) < n:
+            extra = remaining[:n - len(batch)]
+            batch.extend(extra)
+            remaining = remaining[len(extra):]
+
+        self.pending = remaining
         return batch
     
     def mark_seen(self, url_hash: str):

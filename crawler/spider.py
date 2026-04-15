@@ -25,7 +25,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
-from config import CRAWLER_CONFIG, get_all_seed_urls, get_enabled_stores
+from config import CRAWLER_CONFIG, HTML_OUTPUT_DIR, get_all_seed_urls, get_enabled_stores
 from crawler.frontier import (
     URLFrontier, URLItem, hash_url, normalize_url, 
     extract_links_from_html, is_product_url, extract_domain, calculate_priority
@@ -309,6 +309,10 @@ class Spider:
                 is_product_page=result.is_product,
             )
             
+            # Salva HTML em arquivo no filesystem
+            if result.html:
+                await self._save_html_file(domain, page.id, result.html)
+
             # Se é página de produto, extrai e salva informações
             if result.is_product and page:
                 await self._extract_and_save_product(page, result.html, item.url, domain)
@@ -562,6 +566,23 @@ class Spider:
         
         return ''
     
+    async def _save_html_file(self, domain: str, page_id: int, html: str):
+        """
+        Salva HTML da página em arquivo no filesystem.
+
+        Estrutura: data/html_pages/{domain}/{page_id:06d}.html
+        """
+        def _write():
+            domain_dir = HTML_OUTPUT_DIR / domain
+            domain_dir.mkdir(parents=True, exist_ok=True)
+            file_path = domain_dir / f"{page_id:06d}.html"
+            file_path.write_text(html, encoding="utf-8", errors="replace")
+
+        try:
+            await asyncio.to_thread(_write)
+        except Exception as e:
+            console.print(f"[dim]Erro ao salvar HTML de página {page_id}: {e}[/dim]")
+
     def stop(self):
         """Para o crawl graciosamente."""
         console.print("[yellow]🛑 Parando crawl...[/yellow]")

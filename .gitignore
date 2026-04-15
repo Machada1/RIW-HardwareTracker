@@ -54,3 +54,11 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# Dados gerados pelo crawler
+data/html_pages/
+data/index/
+
+# SQLite WAL mode files
+data/crawler.db-shm
+data/crawler.db-wal

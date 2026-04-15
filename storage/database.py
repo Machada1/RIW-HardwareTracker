@@ -238,6 +238,17 @@ class Database:
             
             return product
     
+    async def get_pages_batch(self, offset: int = 0, limit: int = 500) -> list[Page]:
+        """Retorna um lote de páginas para export (sem carregar tudo na memória)."""
+        async with self.session() as session:
+            result = await session.execute(
+                select(Page)
+                .order_by(Page.id.asc())
+                .offset(offset)
+                .limit(limit)
+            )
+            return result.scalars().all()
+
     async def get_product_count(self) -> int:
         """Retorna total de produtos."""
         async with self.session() as session:

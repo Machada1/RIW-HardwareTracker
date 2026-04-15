@@ -348,6 +348,107 @@ async def _export_data(output: str, format: str, db_path: str):
     console.print(f"\n[bold green]Exportação concluída![/] Arquivos em: {output_dir.absolute()}")
 
 
+@app.command(name="export-html")
+def export_html(
+    output: str = typer.Option(
+        str(DATA_DIR / "html_pages"),
+        "--output", "-o",
+        help="Diretório de saída para os arquivos HTML"
+    ),
+    limit: int = typer.Option(
+        0,
+        "--limit", "-n",
+        help="Limite de páginas a exportar (0 = todas)"
+    ),
+    db_path: str = typer.Option(
+        str(DATA_DIR / "crawler.db"),
+        "--db",
+        help="Caminho do banco de dados"
+    ),
+):
+    """
+    Exporta HTMLs coletados do banco para arquivos .html no filesystem.
+
+    Estrutura de saída:
+        {output}/{domain}/{page_id:06d}.html
+        {output}/index.jsonl  (metadados de cada página)
+
+    Exemplos:
+        python main.py export-html
+        python main.py export-html --output html_pages/ --limit 1000
+    """
+    asyncio.run(_export_html(output, limit, db_path))
+
+
+async def _export_html(output: str, limit: int, db_path: str):
+    """Exporta páginas do DB como arquivos HTML."""
+    import json as _json
+
+    output_dir = Path(output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    db = Database(db_path)
+    await db.initialize()
+
+    index_path = output_dir / "index.jsonl"
+    total_exported = 0
+    batch_size = 500
+    offset = 0
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Exportando HTMLs...", total=None)
+
+        with open(index_path, "w", encoding="utf-8") as index_file:
+            while True:
+                pages = await db.get_pages_batch(offset=offset, limit=batch_size)
+                if not pages:
+                    break
+
+                for page in pages:
+                    if not page.html_content:
+                        continue
+
+                    # Cria subpasta por domínio
+                    domain_dir = output_dir / page.domain
+                    domain_dir.mkdir(parents=True, exist_ok=True)
+
+                    # Salva arquivo HTML
+                    file_name = f"{page.id:06d}.html"
+                    file_path = domain_dir / file_name
+                    file_path.write_text(page.html_content, encoding="utf-8", errors="replace")
+
+                    # Escreve linha no index.jsonl
+                    rel_path = f"{page.domain}/{file_name}"
+                    entry = {
+                        "id": page.id,
+                        "url": page.url,
+                        "title": page.title,
+                        "domain": page.domain,
+                        "is_product": page.is_product_page,
+                        "category": page.category,
+                        "crawled_at": str(page.crawled_at),
+                        "file": rel_path,
+                    }
+                    index_file.write(_json.dumps(entry, ensure_ascii=False) + "\n")
+
+                    total_exported += 1
+                    if limit and total_exported >= limit:
+                        break
+
+                progress.update(task, description=f"Exportando HTMLs... {total_exported:,} páginas")
+                offset += batch_size
+
+                if limit and total_exported >= limit:
+                    break
+
+    console.print(f"\n[bold green]✓[/] {total_exported:,} HTMLs exportados para: {output_dir.absolute()}")
+    console.print(f"[green]✓[/] Índice: {index_path}")
+
+
 @app.command()
 def seeds(
     store: Optional[str] = typer.Option(
@@ -389,6 +490,81 @@ def categories():
 
 
 @app.command()
+def clean(
+    db: bool = typer.Option(False, "--db", help="Limpa banco de dados"),
+    html: bool = typer.Option(False, "--html", help="Limpa arquivos HTML exportados"),
+    index: bool = typer.Option(False, "--index", help="Limpa índice invertido"),
+    all_data: bool = typer.Option(False, "--all", help="Limpa tudo (equivale a --db --html --index)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Confirma sem perguntar"),
+):
+    """
+    Remove dados gerados (banco, HTMLs, índice).
+
+    Exemplos:
+        python main.py clean              # interativo, pergunta o que limpar
+        python main.py clean --db         # só banco de dados
+        python main.py clean --html       # só arquivos HTML
+        python main.py clean --index      # só índice invertido
+        python main.py clean --all --yes  # tudo, sem confirmação
+    """
+    import shutil
+
+    # Se nenhum flag específico, limpa tudo
+    if not any([db, html, index, all_data]):
+        all_data = True
+
+    if all_data:
+        db = html = index = True
+
+    # Resolve caminhos
+    db_file = DATA_DIR / "crawler.db"
+    html_dir = DATA_DIR / "html_pages"
+    index_dir = DATA_DIR / "index"
+
+    # Calcula o que será removido
+    targets = []
+    if db and db_file.exists():
+        size = db_file.stat().st_size
+        targets.append((db_file, f"Banco de dados ({size / 1024 / 1024:.0f} MB)", "file"))
+    if html and html_dir.exists():
+        count = sum(1 for _ in html_dir.rglob("*.html"))
+        size = sum(f.stat().st_size for f in html_dir.rglob("*") if f.is_file())
+        targets.append((html_dir, f"Arquivos HTML ({count:,} arquivos, {size / 1024 / 1024:.0f} MB)", "dir"))
+    if index and index_dir.exists():
+        count = sum(1 for _ in index_dir.rglob("*.json"))
+        size = sum(f.stat().st_size for f in index_dir.rglob("*") if f.is_file())
+        targets.append((index_dir, f"Índice invertido ({count} arquivos, {size / 1024 / 1024:.1f} MB)", "dir"))
+
+    if not targets:
+        console.print("[yellow]Nada a remover (dados não existem).[/]")
+        return
+
+    console.print("\n[bold yellow]O seguinte será removido:[/]")
+    for path, desc, _ in targets:
+        console.print(f"  [red]✗[/] {desc}")
+        console.print(f"    [dim]{path}[/dim]")
+
+    if not yes:
+        confirmed = typer.confirm("\nConfirmar remoção?")
+        if not confirmed:
+            console.print("[yellow]Operação cancelada.[/]")
+            raise typer.Exit()
+
+    console.print()
+    for path, desc, kind in targets:
+        try:
+            if kind == "file":
+                path.unlink()
+            else:
+                shutil.rmtree(path)
+            console.print(f"[green]✓[/] Removido: {desc}")
+        except Exception as e:
+            console.print(f"[red]✗[/] Erro ao remover {path}: {e}")
+
+    console.print("\n[green]Limpeza concluída.[/]")
+
+
+@app.command()
 def clear(
     db_path: str = typer.Option(
         str(DATA_DIR / "crawler.db"),
@@ -402,17 +578,17 @@ def clear(
     ),
 ):
     """
-    Limpa todos os dados coletados.
+    (Legado) Remove apenas o banco de dados. Prefira usar 'clean'.
     """
     if not confirm:
         confirm = typer.confirm(
-            "⚠️  Isso vai apagar TODOS os dados coletados. Continuar?"
+            "Isso vai apagar o banco de dados. Continuar?"
         )
-    
+
     if not confirm:
         console.print("[yellow]Operação cancelada.[/]")
         raise typer.Exit()
-    
+
     db_file = Path(db_path)
     if db_file.exists():
         db_file.unlink()
@@ -761,7 +937,12 @@ def analyze_products():
     # Conta total
     c.execute("SELECT COUNT(*) FROM products")
     total = c.fetchone()[0]
-    
+
+    if total == 0:
+        console.print("[yellow]Nenhum produto encontrado no banco.[/]")
+        conn.close()
+        return
+
     # Conta hardware válido
     hardware_count = 0
     non_hardware_count = 0
@@ -828,13 +1009,204 @@ def analyze_products():
     console.print(f"\n[bold yellow]💡 Dica:[/] Use 'browse --search \"placa de video\"' para ver só hardware válido")
 
 
+# ---------------------------------------------------------------------------
+# Sub-aplicação: index
+# ---------------------------------------------------------------------------
+
+index_app = typer.Typer(help="Gerencia o índice invertido BM25")
+app.add_typer(index_app, name="index")
+
+
+@index_app.command("build")
+def index_build(
+    db_path: str = typer.Option(
+        str(DATA_DIR / "crawler.db"),
+        "--db",
+        help="Banco de dados fonte",
+    ),
+    index_dir: str = typer.Option(
+        str(DATA_DIR / "index"),
+        "--index-dir",
+        help="Diretório de saída do índice",
+    ),
+    no_stem: bool = typer.Option(False, "--no-stem", help="Desativa stemming"),
+    no_stopwords: bool = typer.Option(False, "--no-stopwords", help="Desativa remoção de stopwords"),
+):
+    """
+    Constrói o índice invertido BM25 a partir do banco de dados.
+
+    Exemplos:
+        python main.py index build
+        python main.py index build --index-dir data/index_custom/
+    """
+    from indexer import IndexBuilder, TextProcessor
+    from rich.progress import BarColumn, MofNCompleteColumn, TimeElapsedColumn
+
+    db_file = Path(db_path)
+    if not db_file.exists():
+        console.print("[red]Banco de dados não encontrado.[/] Execute: python main.py crawl")
+        raise typer.Exit(1)
+
+    tp = TextProcessor(use_stemming=not no_stem, use_stopwords=not no_stopwords)
+    builder = IndexBuilder(index_dir=Path(index_dir), text_processor=tp)
+
+    console.print(Panel.fit(
+        f"[bold blue]Construindo Índice Invertido[/]\n"
+        f"Fonte: {db_file}\n"
+        f"Saída: {index_dir}\n"
+        f"Stemmer: {tp.stemmer_name} | Stopwords: {'sim' if not no_stopwords else 'não'}",
+        title="🔨 Index Build",
+    ))
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Indexando documentos...", total=None)
+
+        def _cb(processed: int, total: int):
+            progress.update(task, total=total, completed=processed,
+                            description=f"Indexando documentos... {processed:,}/{total:,}")
+
+        meta = builder.build_from_db(db_file, progress_cb=_cb)
+
+    # Exibe estatísticas do índice construído
+    table = Table(title="Índice Construído", show_header=True)
+    table.add_column("Métrica", style="cyan")
+    table.add_column("Valor", style="green", justify="right")
+    table.add_row("Documentos indexados", f"{meta['total_docs']:,}")
+    table.add_row("Termos únicos (vocabuário)", f"{meta['total_terms']:,}")
+    table.add_row("Total de postings", f"{meta['total_postings']:,}")
+    table.add_row("Comprimento médio (tokens)", f"{meta['avg_dl']:.1f}")
+    table.add_row("Stemmer", meta["stemmer"])
+    table.add_row("Stopwords ativas", "sim" if meta["use_stopwords"] else "não")
+    table.add_row("Tempo de construção", f"{meta['build_time_s']:.1f} s")
+    console.print(table)
+    console.print(f"\n[bold green]✓[/] Índice salvo em: {Path(index_dir).absolute()}")
+
+
+@index_app.command("stats")
+def index_stats(
+    index_dir: str = typer.Option(
+        str(DATA_DIR / "index"),
+        "--index-dir",
+        help="Diretório do índice",
+    ),
+    top_n: int = typer.Option(20, "--top", "-n", help="Top N termos por frequência"),
+):
+    """
+    Exibe estatísticas detalhadas do índice invertido.
+
+    Exemplos:
+        python main.py index stats
+        python main.py index stats --top 50
+    """
+    from indexer import Searcher
+
+    s = Searcher(index_dir=Path(index_dir))
+    if not s.is_ready():
+        console.print("[red]Índice não encontrado.[/] Execute: python main.py index build")
+        raise typer.Exit(1)
+
+    info = s.stats()
+
+    # Métricas gerais
+    overview = Table(title="Visão Geral do Índice", show_header=True)
+    overview.add_column("Métrica", style="cyan")
+    overview.add_column("Valor", style="green", justify="right")
+    overview.add_row("Documentos", f"{info['total_docs']:,}")
+    overview.add_row("Termos no vocabulário", f"{info['total_terms']:,}")
+    overview.add_row("Total de postings", f"{info['total_postings']:,}")
+    overview.add_row("Comprimento médio (tokens)", f"{info['avg_dl']:.1f}")
+    overview.add_row("Stemmer", info["stemmer"])
+    overview.add_row("Hapax legomena (df=1)", f"{info['hapax_legomena']:,} ({info['hapax_pct']}%)")
+    overview.add_row("DF p50", str(info["df_p50"]))
+    overview.add_row("DF p90", str(info["df_p90"]))
+    overview.add_row("DF p99", str(info["df_p99"]))
+    console.print(overview)
+
+    # Top termos
+    terms_table = Table(title=f"Top {top_n} Termos por Document Frequency", show_header=True)
+    terms_table.add_column("Rank", style="dim", width=5)
+    terms_table.add_column("Termo (stem)", style="cyan")
+    terms_table.add_column("DF", style="green", justify="right")
+    for rank, (term, df) in enumerate(info["top_terms"][:top_n], 1):
+        terms_table.add_row(str(rank), term, f"{df:,}")
+    console.print(terms_table)
+
+
+@index_app.command("search")
+def index_search(
+    query: str = typer.Argument(..., help="Texto da busca"),
+    top_k: int = typer.Option(10, "--top", "-k", help="Número de resultados"),
+    domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Filtrar por domínio (ex: kabum.com.br)"),
+    index_dir: str = typer.Option(
+        str(DATA_DIR / "index"),
+        "--index-dir",
+        help="Diretório do índice",
+    ),
+):
+    """
+    Busca no índice invertido usando BM25.
+
+    Exemplos:
+        python main.py index search "placa de video rtx 4070"
+        python main.py index search "processador ryzen" --top 20
+        python main.py index search "ssd nvme" --domain kabum.com.br
+    """
+    from indexer import Searcher
+
+    s = Searcher(index_dir=Path(index_dir))
+    if not s.is_ready():
+        console.print("[red]Índice não encontrado.[/] Execute: python main.py index build")
+        raise typer.Exit(1)
+
+    results = s.search(query, top_k=top_k, domain_filter=domain)
+
+    if not results:
+        console.print(f"[yellow]Nenhum resultado para:[/] {query}")
+        raise typer.Exit()
+
+    title = f"Resultados BM25 para: \"{query}\""
+    if domain:
+        title += f" (domínio: {domain})"
+
+    table = Table(title=title, show_header=True)
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Score", style="yellow", justify="right", width=7)
+    table.add_column("Título", style="cyan", max_width=55, overflow="ellipsis")
+    table.add_column("Domínio", style="blue", width=22)
+    table.add_column("Produto?", style="green", width=8)
+    table.add_column("Categoria", style="magenta", width=12)
+
+    for r in results:
+        table.add_row(
+            str(r["rank"]),
+            f"{r['score']:.4f}",
+            r["title"] or r["url"][:55],
+            r["domain"],
+            "✓" if r["is_product"] else "",
+            r["category"] or "",
+        )
+
+    console.print(table)
+
+    # Mostra URL do top resultado
+    if results:
+        console.print(f"\n[dim]Top resultado:[/] {results[0]['url']}")
+
+
 @app.command()
 def version():
     """
     Mostra a versão do crawler.
     """
     console.print("[bold blue]Hardware Crawler[/] v1.0.0")
-    console.print("Sistema de RI - Fase 1: Coletor")
+    console.print("Sistema de RI - Fase 1: Coletor + Fase 2: Representação")
     console.print("Autor: Aluno")
 
 
