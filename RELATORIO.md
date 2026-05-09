@@ -437,16 +437,16 @@ data/
 
 ## 12. Próximos Passos — Fase 3 (Busca Avançada e Interface)
 
-### 12.1 Cronograma de Conclusão (2–3 semanas)
+### 12.1 Cronograma de Conclusão (até final de agosto)
 
 | Data | Tarefa | Responsável | Dependências | Status |
 |------|--------|-------------|--------------|--------|
-| 2024-12-20 | Implementar busca avançada (AND, OR, NOT) | Membro 1 | Searcher pronto ✓ | — |
-| 2024-12-20 | Criar interface web (Flask/Jinja2) | Membro 2 | CLI pronto ✓ | — |
-| 2024-12-22 | Testes E2E da web UI | Membro 1+2 | Busca + web | — |
-| 2024-12-23 | Otimização de performance | Membro 3 | Índice 60k ✓ | — |
-| 2024-12-24 | Documentação final + vídeo demo | Todos | Tudo acima | — |
-| 2024-12-25 | **Entrega Final** | — | Todas tarefas | ✓ |
+| 2026-05-22 | Implementar busca avançada (AND, OR, NOT) | Membro 1 | Searcher pronto ✓ | — |
+| 2026-05-29 | Criar interface web (Flask/Jinja2) | Membro 2 | CLI pronto ✓ | — |
+| 2026-06-10 | Testes E2E da web UI | Membro 1+2 | Busca + web | — |
+| 2026-06-20 | Otimização de performance + refactoring | Membro 3 | Índice 60k ✓ | — |
+| 2026-07-15 | Documentação final + vídeo demo | Todos | Tudo acima | — |
+| 2026-08-15 | **Entrega Final** | — | Todas tarefas | ✓ |
 
 ### 12.2 Tarefas Técnicas Detalhadas
 
