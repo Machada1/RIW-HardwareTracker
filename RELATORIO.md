@@ -314,7 +314,7 @@ python -m pytest tests/ -v
 
 ---
 
-## 8. Resultados da Coleta Final (60.001 páginas)
+## 8. Resultados da Coleta Final (60.023 páginas)
 
 Coleta realizada após correção dos bugs, com dados completos:
 
@@ -322,47 +322,55 @@ Coleta realizada após correção dos bugs, com dados completos:
 
 | Métrica | Valor |
 |---------|-------|
-| Páginas coletadas | 60.001 |
+| Páginas coletadas | 60.023 |
 | Tempo de coleta total | ~5–6 horas |
-| Distribuição aproximada | 20.000 Kabum / 20.000 ML / 20.000 Amazon |
-| Tamanho do banco SQLite | 5,5 GB |
-| Tamanho HTML em disco | ~13 GB (60k arquivos) |
+| Distribuição por domínio | 5.702 Kabum / 28.414 ML / 25.907 Amazon |
+| Tamanho do banco SQLite | 5,3 GB |
+| Tamanho HTML em disco | 5,1 GB (60k arquivos) |
 | Taxa média (pps) | ~3–4 páginas/segundo |
 
 > Coleta realizada com máximo 25 requisições concorrentes (6 por domínio) e delay mínimo de 0,2s entre requisições ao mesmo domínio.
 
-### 8.2 Qualidade esperada (extrapolação de 2k → 60k)
+> **Nota sobre distribuição:** A coleta resultou em distribuição desigual — Mercado Livre e Amazon possuem grafos de links mais densos, gerando maior profundidade de exploração. O Kabum, com menor volume de URLs internas, convergiu antes dos demais.
 
-| Categoria | Quantidade esperada | % |
-|-----------|---------------------|---|
-| Hardware válido | ~54.840 | 91,4% |
+### 8.2 Qualidade dos Produtos Extraídos
+
+| Métrica | Quantidade | % |
+|---------|------------|---|
+| Produtos extraídos (total) | 858 | — |
+| Hardware válido | 801 | 93,4% |
 | Não-hardware | 0 | 0,0% |
-| Não classificado | ~5.160 | 8,6% |
+| Não classificado | 57 | 6,6% |
+| Com preço extraído | 838 | 97,7% |
 
-### 8.3 Índice Invertido (60.001 docs)
+> Produtos sem preço (20 casos, 2,3%) correspondem a itens com preço ocultado por JavaScript após carregamento — não detectáveis por crawler estático.
+
+### 8.3 Índice Invertido (60.020 docs)
 
 | Métrica | Valor |
 |---------|-------|
-| Documentos indexados | 60.001 |
-| Termos únicos (após stemming) | 115.432 |
-| Total de postings | 6.851.000 (aprox.) |
-| Comprimento médio (tokens) | 190,62 |
-| Hapax legomena (df = 1) | ~58.995 (51,1%) |
+| Documentos indexados | 60.020 |
+| Termos únicos (após stemming) | 106.873 |
+| Total de postings | 4.923.216 |
+| Comprimento médio (tokens) | 202,0 |
+| Hapax legomena (df = 1) | 73.298 (68,6%) |
 | Stemmer | RSLP |
-| Tempo de build | 22,2 s |
-| Tamanho do índice em disco | 28 MB (256 shards JSON) |
+| Tempo de build | 571,3 s (~9,5 min) |
+| Tamanho do índice em disco | 77 MB (256 shards JSON) |
+
+> O alto percentual de hapax (68,6%) reflete a diversidade de SKUs, nomes de modelo e especificações técnicas — característica esperada em e-commerce de hardware.
 
 ### 8.4 Exemplos de Busca BM25
 
 ```
 $ python main.py index search "placa de video rtx 4070"
-#1  12.59  Placa de Vídeo NVIDIA RTX 4070 OC 12GB GDDR6X  kabum.com.br
+#1  28.41  Placa de Vídeo RTX 4070 Ti: Descontos Exclusivos no KaBuM!  kabum.com.br
 
 $ python main.py index search "ssd nvme 1tb"
-#1  16.81  SSD NVME 1tb com até 15% OFF no PIX | KaBuM!  kabum.com.br
+#1  24.85  SSD NVME 1tb com até 15% OFF no PIX | KaBuM!  kabum.com.br
 
 $ python main.py index search "processador ryzen" --domain kabum.com.br
-#1   8.48  Processador AMD Ryzen 7 5800X - R$ 1.299  kabum.com.br
+#1  14.32  Processador AMD Ryzen: Ofertas de Black Friday no KaBuM!  kabum.com.br
 ```
 
 ---
@@ -490,8 +498,8 @@ data/
 
 - Coleta assíncrona multi-loja funcionando (aiohttp + BFS + balanceamento)
 - Deduplicação por SHA-256 após normalização de URL
-- Extração de produtos com 91,4% de precisão e 0% de falsos não-hardware
-- Taxa de preço de 98,8%; 0% de falsos positivos (RGB, etc.)
+- Extração de produtos com 93,4% de precisão e 0% de falsos não-hardware
+- Taxa de preço de 97,7%; 0% de falsos positivos (RGB, etc.)
 - Persistência dual: SQLite + arquivos HTML
 - 9 bugs identificados e corrigidos durante o desenvolvimento e nos testes
 

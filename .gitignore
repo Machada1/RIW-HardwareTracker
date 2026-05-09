@@ -41,6 +41,7 @@ ENV/
 # Dados exportados
 export/
 data/*.db
+data/html_pages/*.html
 
 # Logs
 *.log
