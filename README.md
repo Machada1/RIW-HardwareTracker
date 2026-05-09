@@ -96,6 +96,52 @@ python main.py clean --all --yes
 
 ---
 
+## Representação dos Dados (Índice Invertido)
+
+A representação dos dados coletados está em **formato de arquivo**, seguindo a especificação da Fase 2 — sem bancos de dados ACID. O índice invertido é a **única representação de dados indexável**, armazenada em 256 arquivos JSON shardados.
+
+### Estrutura do Índice em Disco
+
+```
+data/index/
+├── meta.json       → {total_docs: 60001, total_terms: 115432, avg_dl: 190.62, ...}
+├── vocab.json      → {stemword: {id: int, df: int, raw: str}, ...}
+├── docs.json       → {doc_id: {url, title, domain, dl, is_product, category}, ...}
+└── postings/       → 256 shards de posting lists
+    ├── 00.json     → {term_id: [[doc_id, tf], ...]} para term_id % 256 == 0
+    ├── 01.json
+    ...
+    └── ff.json     → idem para term_id % 256 == 255
+```
+
+### Algoritmo BM25
+
+```
+score(q,d) = Σ_t  IDF(t) × tf(t,d)×(k1+1) / (tf(t,d) + k1×(1 − b + b×dl/avgdl))
+
+Hiperparâmetros: k1 = 1.5, b = 0.75 (defaults de Robertson et al., TREC-3)
+```
+
+### Pipeline NLP para Português
+
+```
+texto bruto
+  ↓ lowercasing
+  ↓ tokenização regex (\b\w+\b)
+  ↓ filtro: tokens 2–40 caracteres
+  ↓ remoção de stopwords PT-BR (~120 termos)
+  ↓ stemming RSLP (específico para português)
+  → índice invertido
+```
+
+**Por que arquivo e não banco de dados?**
+- ✓ Especificação: Fase 2 proíbe "Banco de Dados ACID"
+- ✓ Escalável: 256 shards mantêm cada arquivo em dezenas de KB
+- ✓ Sem overhead: acesso direto — não há joins nem transações
+- ✓ Legível: inspeção manual dos arquivos JSON se necessário
+
+---
+
 ## Estrutura do Repositório
 
 ```
