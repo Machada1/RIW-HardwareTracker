@@ -40,6 +40,8 @@ ENV/
 
 # Dados exportados
 export/
+dados/
+dados_*/
 data/*.db
 data/html_pages/*.html
 

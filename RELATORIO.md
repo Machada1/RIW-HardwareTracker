@@ -490,7 +490,27 @@ data/
 
 ---
 
-## 11. Lojas Não Suportadas
+## 11. Limitações Conhecidas
+
+### 11.1 Resultados Duplicados na Busca
+
+Buscas retornam o mesmo documento repetido nas primeiras posições (ex: `"ssd nvme 1tb"` retorna 10 entradas com score idêntico). A deduplicação do crawler opera sobre o hash SHA-256 da URL normalizada — elimina duplicatas de URL, mas não detecta páginas com conteúdo idêntico servidas em URLs distintas (ex: mesma página de categoria com parâmetros de sessão ou ordenação diferentes que escapam dos `ignore_patterns`). O impacto na Fase 3 será mitigado com deduplicação por conteúdo na interface de resultados.
+
+### 11.2 Mercado Livre sem Produtos Extraídos
+
+Apesar de 28.414 páginas do Mercado Livre indexadas, nenhum produto com preço foi extraído da plataforma (`analyze-products`: 551 Amazon, 307 Kabum, 0 ML). O ML carrega preços via JavaScript após o HTML inicial — o seletor CSS `.andes-money-amount__fraction` não está presente no HTML estático. As páginas do ML contribuem para o índice de busca (texto de título e descrição), mas não para a tabela de produtos.
+
+### 11.3 Termos de Boilerplate no Vocabulário
+
+Os termos de maior frequência no índice são provenientes de banners de cookies e políticas de privacidade: `privac` (88,9% dos docs), `cooki` (48,7%), `continu` (78,4%). Esses termos têm IDF próximo de zero e não afetam o ranqueamento BM25 de forma prática, mas inflam o vocabulário (~106k termos) com ruído. Uma solução seria incluí-los nas stopwords customizadas de e-commerce na próxima iteração.
+
+### 11.4 Distribuição Desigual entre Lojas
+
+A coleta resultou em 5.702 páginas do Kabum contra 28.414 do ML e 25.907 da Amazon. O balanceamento por domínio do `pop_batch` distribui igualmente por batch, mas o Kabum possui menos URLs internas — seu grafo de links converge antes dos demais. Não é falha do crawler; é característica do site.
+
+---
+
+## 12. Lojas Não Suportadas
 
 | Loja | Problema | Detalhe |
 |------|----------|---------|
@@ -500,7 +520,7 @@ data/
 
 ---
 
-## 12. Conclusão
+## 13. Conclusão
 
 ### Fase 1
 
