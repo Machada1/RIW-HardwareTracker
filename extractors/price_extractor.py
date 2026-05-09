@@ -12,7 +12,7 @@ import re
 import json
 from typing import Optional, Tuple
 from bs4 import BeautifulSoup
-from decimal import Decimal, InvalidOperation
+from decimal import InvalidOperation
 
 
 class PriceExtractor:

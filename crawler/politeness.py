@@ -11,7 +11,7 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 from typing import Optional
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 
 import aiohttp
 from robotexclusionrulesparser import RobotExclusionRulesParser
