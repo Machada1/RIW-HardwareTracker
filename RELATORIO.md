@@ -435,9 +435,9 @@ data/
 
 ---
 
-## 12. Próximos Passos — Fase 3 (Busca Avançada e Interface)
+## 10. Próximos Passos — Fase 3 (Busca Avançada e Interface)
 
-### 12.1 Cronograma de Conclusão (até final de agosto)
+### 10.1 Cronograma de Conclusão (até final de agosto)
 
 | Data | Tarefa | Responsável | Dependências | Status |
 |------|--------|-------------|--------------|--------|
@@ -448,7 +448,7 @@ data/
 | 2026-07-15 | Documentação final + vídeo demo | Todos | Tudo acima | — |
 | 2026-08-15 | **Entrega Final** | — | Todas tarefas | ✓ |
 
-### 12.2 Tarefas Técnicas Detalhadas
+### 10.2 Tarefas Técnicas Detalhadas
 
 **Tarefa 1: Busca Avançada** (2–3 horas)
 - Expandir `Searcher.search()` para AND, OR, NOT
@@ -465,7 +465,7 @@ data/
 - Pré-compilação de regex em `TextProcessor`
 - Índice de termos frequentes em memória
 
-### 12.3 Métricas de Sucesso
+### 10.3 Métricas de Sucesso
 
 - Busca AND/OR/NOT: 0 falsos positivos em teste de 10 queries
 - Web UI: 0 erros em 50 buscas
@@ -474,7 +474,7 @@ data/
 
 ---
 
-## 10. Lojas Não Suportadas
+## 11. Lojas Não Suportadas
 
 | Loja | Problema | Detalhe |
 |------|----------|---------|
@@ -484,7 +484,7 @@ data/
 
 ---
 
-## 11. Conclusão
+## 12. Conclusão
 
 ### Fase 1
 

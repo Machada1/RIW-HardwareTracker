@@ -40,7 +40,7 @@ python main.py index build
 python main.py clean
 
 # Limpar tudo sem confirmação
-python main.py clean --yes
+python main.py clean --all --yes
 
 # Limpar só o banco
 python main.py clean --db
