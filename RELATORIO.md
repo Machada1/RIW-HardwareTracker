@@ -457,10 +457,10 @@ data/
 
 | Data | Tarefa | Responsável | Dependências | Status |
 |------|--------|-------------|--------------|--------|
-| 2026-05-22 | Implementar busca avançada (AND, OR, NOT) | Membro 1 | Searcher pronto ✓ | — |
-| 2026-05-29 | Criar interface web (Flask/Jinja2) | Membro 2 | CLI pronto ✓ | — |
-| 2026-06-10 | Testes E2E da web UI | Membro 1+2 | Busca + web | — |
-| 2026-06-20 | Otimização de performance + refactoring | Membro 3 | Índice 60k ✓ | — |
+| 2026-05-22 | Implementar busca avançada (AND, OR, NOT) | Guilherme Machado | Searcher pronto ✓ | — |
+| 2026-05-29 | Criar interface web (Flask/Jinja2) | Diogo Campos | CLI pronto ✓ | — |
+| 2026-06-10 | Testes E2E da web UI | Luis e Bruna | Busca + web | — |
+| 2026-06-20 | Otimização de performance + refactoring | Leni e Arthur | Índice 60k ✓ | — |
 | 2026-07-15 | Documentação final + vídeo demo | Todos | Tudo acima | — |
 | 2026-08-15 | **Entrega Final** | — | Todas tarefas | ✓ |
 
